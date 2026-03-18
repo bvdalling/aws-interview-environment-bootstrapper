@@ -145,6 +145,7 @@ export class InfraStack extends Stack {
           alb,
           albListener,
           cloudFrontDistributionDomain: distribution.distributionDomainName,
+          cloudFrontDistribution: distribution,
           routeGuid,
           listenerRulePriority,
         });

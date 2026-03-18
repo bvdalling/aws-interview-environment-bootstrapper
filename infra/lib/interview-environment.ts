@@ -1,9 +1,12 @@
+import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
-import { CfnOutput } from 'aws-cdk-lib';
+import { CfnOutput, Duration } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as elbv2Targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -28,6 +31,7 @@ export type InterviewEnvironmentProps = {
   albListener: elbv2.IApplicationListener;
   /** CloudFront domain only, e.g. d111abcdef.cloudfront.net (for code-server public URLs). */
   cloudFrontDistributionDomain: string;
+  cloudFrontDistribution: cloudfront.Distribution;
   routeGuid: string;
   listenerRulePriority: number;
   machineImage: ec2.IMachineImage;
@@ -115,6 +119,11 @@ export class InterviewEnvironment extends Construct {
     instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
 
     const codeServerBasePath = `/env-${props.routeGuid}`;
+
+    // This value is injected into CloudFront as a custom origin header, and
+    // validated by NGINX before proxying to code-server.
+    const originVerifyExpected = crypto.randomBytes(32).toString('hex');
+
     const codeServerScript = renderCodeServerScript(props.templates, {
       codeServerPassword: props.fleet.codeServerPassword,
       codeServerBasePath,
@@ -123,6 +132,7 @@ export class InterviewEnvironment extends Construct {
 
     const nginxConfig = renderNginxConfig(props.templates, {
       basePath: codeServerBasePath,
+      originVerifyExpected,
     });
 
     const fetchBundleScript = renderFetchBundleScript(props.templates, {
@@ -233,6 +243,29 @@ export class InterviewEnvironment extends Construct {
     );
 
     const pathPattern = `/env-${props.routeGuid}/*`;
+
+    // Ensure only CloudFront-originated requests include the correct secret
+    // header for this environment's origin path.
+    props.cloudFrontDistribution.addBehavior(
+      pathPattern,
+      new origins.HttpOrigin(props.alb.loadBalancerDnsName, {
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        readTimeout: Duration.seconds(60),
+        keepaliveTimeout: Duration.seconds(60),
+        customHeaders: {
+          'X-Origin-Verify': originVerifyExpected,
+        },
+      }),
+      {
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        // Forward viewer Host for code-server to generate correct absolute URLs.
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        compress: false,
+      },
+    );
 
     props.albListener.addAction(`AlbListenerRule-${generatedSuffix}`, {
       priority: props.listenerRulePriority,

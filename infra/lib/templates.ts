@@ -65,12 +65,11 @@ export function toNginxHeaderVariableName(headerName: string): string {
 
 export function renderNginxConfig(
   templates: Templates,
-  opts: { basePath: string },
+  opts: { basePath: string; originVerifyExpected: string },
 ): string {
-  return templates.nginxConfigTemplate.replace(
-    /__NGINX_BASE_PATH__/g,
-    opts.basePath,
-  );
+  return templates.nginxConfigTemplate
+    .replace(/__NGINX_BASE_PATH__/g, opts.basePath)
+    .replace(/__ORIGIN_VERIFY_EXPECTED__/g, opts.originVerifyExpected);
 }
 
 export function renderFetchBundleScript(

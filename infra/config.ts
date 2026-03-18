@@ -37,7 +37,7 @@ export const appConfig: AppConfig = {
       instanceType: 't3.small',
       volumeSizeGiB: 30,
       codeServerPassword: 'ReplaceMeNow-StrongPassword1!',
-      projectZipKey: 'bundles/interview/79abb4feab686daf06fcff46e168cbc75a6fd597566d5b65384abfc204e10445.zip',
+      projectZipKey: 'bundles/interview/interview.zip',
     },
   ],
   terminationDateUtc: '2026-03-18T23:59:00Z',

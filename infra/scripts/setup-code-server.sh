@@ -20,7 +20,16 @@ EOF
 chown -R ubuntu:ubuntu /home/ubuntu/.config
 
 cat > /etc/code-server-proxy.env <<EOF
-VSCODE_PROXY_URI=https://__CLOUDFRONT_HOST__${BASE_PATH}/proxy/{{port}}
+# code-server is served behind /env-<routeGuid>/ but NGINX strips that prefix
+# before proxying to code-server. We must therefore include the prefix in the
+# proxy links code-server generates for forwarded ports (/absproxy/<port>/).
+#
+# Without this, the browser will hit /absproxy/<port>/ at CloudFront's root,
+# which doesn't match the ALB listener rules and results in a 404.
+# Trailing slash after {{port}} is important so browsers resolve
+# relative paths against /absproxy/<port>/ instead of treating <port> as a
+# filename (which would drop the port segment).
+VSCODE_PROXY_URI=https://__CLOUDFRONT_HOST__${BASE_PATH}/absproxy/{{port}}/
 EOF
 chmod 644 /etc/code-server-proxy.env
 
@@ -39,7 +48,7 @@ Group=ubuntu
 Environment=HOME=/home/ubuntu
 EnvironmentFile=/etc/code-server-proxy.env
 WorkingDirectory=/home/ubuntu
-ExecStart=${CODE_SERVER_BIN}
+ExecStart=${CODE_SERVER_BIN} --abs-proxy-base-path=${BASE_PATH} --skip-auth-preflight
 Restart=on-failure
 RestartSec=5
 
