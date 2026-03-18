@@ -82,8 +82,8 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
       cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-      originRequestPolicy:
-        cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      // Forward viewer Host so code-server generates correct absolute URLs for WS/API (not ALB hostname).
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
       compress: false,
     },
     priceClass: cloudfront.PriceClass.PRICE_CLASS_100,

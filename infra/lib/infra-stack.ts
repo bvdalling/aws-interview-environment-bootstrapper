@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
 import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
@@ -102,8 +103,32 @@ export class InfraStack extends Stack {
     const albListener = loadBalancer.listener;
     const distribution = loadBalancer.distribution;
 
+    let envOrdinal = 0;
+    const usedListenerRulePriorities = new Set<number>();
+    const pickListenerRulePriority = (routeGuid: string): number => {
+      // ALB listener rule priorities must be unique per listener.
+      // We intentionally derive it from the GUID so that replacements during
+      // updates don't conflict with old rules that still exist.
+      let attempt = 0;
+      while (true) {
+        const hash = crypto
+          .createHash('sha256')
+          .update(`${routeGuid}-${envOrdinal}-${attempt}`)
+          .digest();
+        const candidate = 1 + (hash.readUInt32BE(0) % 50_000); // 1-50000 inclusive
+        if (!usedListenerRulePriorities.has(candidate)) {
+          usedListenerRulePriorities.add(candidate);
+          return candidate;
+        }
+        attempt += 1;
+      }
+    };
     for (const fleet of appConfig.fleets) {
       for (let i = 0; i < fleet.count; i++) {
+        const routeGuid = crypto.randomUUID();
+        const listenerRulePriority = pickListenerRulePriority(routeGuid);
+        envOrdinal += 1;
+
         new InterviewEnvironment(this, `InterviewEnvironment-${fleet.name}-${i + 1}`, {
           stackScope: this,
           vpc,
@@ -119,6 +144,9 @@ export class InfraStack extends Stack {
           templates,
           alb,
           albListener,
+          cloudFrontDistributionDomain: distribution.distributionDomainName,
+          routeGuid,
+          listenerRulePriority,
         });
       }
     }

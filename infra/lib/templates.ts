@@ -36,12 +36,16 @@ export function loadTemplates(): Templates {
 
 export function renderCodeServerScript(
   templates: Templates,
-  opts: { codeServerPassword: string },
+  opts: {
+    codeServerPassword: string;
+    codeServerBasePath: string;
+    cloudFrontHost: string;
+  },
 ): string {
-  return templates.setupCodeServerTemplate.replace(
-    '__CODE_SERVER_PASSWORD__',
-    opts.codeServerPassword,
-  );
+  return templates.setupCodeServerTemplate
+    .replace(/__CODE_SERVER_PASSWORD__/g, opts.codeServerPassword)
+    .replace(/__CODE_SERVER_BASE_PATH__/g, opts.codeServerBasePath)
+    .replace(/__CLOUDFRONT_HOST__/g, opts.cloudFrontHost);
 }
 
 export function renderSetupCloudWatchAgentScript(
@@ -59,8 +63,14 @@ export function toNginxHeaderVariableName(headerName: string): string {
   return headerName.toLowerCase().replace(/-/g, '_');
 }
 
-export function renderNginxConfig(templates: Templates): string {
-  return templates.nginxConfigTemplate;
+export function renderNginxConfig(
+  templates: Templates,
+  opts: { basePath: string },
+): string {
+  return templates.nginxConfigTemplate.replace(
+    /__NGINX_BASE_PATH__/g,
+    opts.basePath,
+  );
 }
 
 export function renderFetchBundleScript(

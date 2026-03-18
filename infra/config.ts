@@ -34,7 +34,7 @@ export const appConfig: AppConfig = {
     {
       name: 'interview',
       count: 2,
-      instanceType: 't3.micro',
+      instanceType: 't3.small',
       volumeSizeGiB: 30,
       codeServerPassword: 'ReplaceMeNow-StrongPassword1!',
       projectZipKey: 'bundles/interview/79abb4feab686daf06fcff46e168cbc75a6fd597566d5b65384abfc204e10445.zip',

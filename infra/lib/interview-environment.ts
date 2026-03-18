@@ -1,4 +1,3 @@
-import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
 import { CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
@@ -27,6 +26,10 @@ export type InterviewEnvironmentProps = {
   cloudFrontPrefixList: ec2.IPrefixList;
   alb: elbv2.IApplicationLoadBalancer;
   albListener: elbv2.IApplicationListener;
+  /** CloudFront domain only, e.g. d111abcdef.cloudfront.net (for code-server public URLs). */
+  cloudFrontDistributionDomain: string;
+  routeGuid: string;
+  listenerRulePriority: number;
   machineImage: ec2.IMachineImage;
   fleet: InterviewFleetConfig;
   index: number;
@@ -111,11 +114,16 @@ export class InterviewEnvironment extends Construct {
     instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP outbound (apt)');
     instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
 
+    const codeServerBasePath = `/env-${props.routeGuid}`;
     const codeServerScript = renderCodeServerScript(props.templates, {
       codeServerPassword: props.fleet.codeServerPassword,
+      codeServerBasePath,
+      cloudFrontHost: props.cloudFrontDistributionDomain,
     });
 
-    const nginxConfig = renderNginxConfig(props.templates);
+    const nginxConfig = renderNginxConfig(props.templates, {
+      basePath: codeServerBasePath,
+    });
 
     const fetchBundleScript = renderFetchBundleScript(props.templates, {
       projectBucketName: props.projectBucket.bucketName,
@@ -224,24 +232,20 @@ export class InterviewEnvironment extends Construct {
       },
     );
 
-    const pathPattern = `/env-${suffix}/*`;
-
-    const priorityHash = crypto
-      .createHash('sha256')
-      .update(props.instanceRecreateToken)
-      .digest();
-    const bandIndex = priorityHash[0] % 100; // 0-99
-    const basePriority = 10_000 + bandIndex * 100; // 10000, 10100, ...
-    const listenerRulePriority = basePriority + props.index;
+    const pathPattern = `/env-${props.routeGuid}/*`;
 
     props.albListener.addAction(`AlbListenerRule-${generatedSuffix}`, {
-      priority: listenerRulePriority,
+      priority: props.listenerRulePriority,
       conditions: [elbv2.ListenerCondition.pathPatterns([pathPattern])],
       action: elbv2.ListenerAction.forward([targetGroup]),
     });
 
     new CfnOutput(props.stackScope, `InstanceId-${generatedSuffix}`, {
       value: instance.instanceId,
+    });
+
+    new CfnOutput(props.stackScope, `EnvironmentUrl-${generatedSuffix}`, {
+      value: `https://${props.cloudFrontDistributionDomain}${codeServerBasePath}/`,
     });
 
     this.instance = instance;
