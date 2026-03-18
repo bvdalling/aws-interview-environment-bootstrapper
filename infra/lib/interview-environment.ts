@@ -1,0 +1,252 @@
+import * as crypto from 'crypto';
+import * as cdk from 'aws-cdk-lib';
+import { CfnOutput } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as elbv2Targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import type { InterviewFleetConfig } from '../config';
+import {
+  renderCodeServerScript,
+  renderFetchBundleScript,
+  renderNginxConfig,
+  renderSetupCloudWatchAgentScript,
+  type Templates,
+} from './templates';
+
+export type InterviewEnvironmentProps = {
+  stackScope: Construct;
+  vpc: ec2.IVpc;
+  projectBucket: s3.Bucket;
+  cloudFrontLogsBucket: s3.Bucket;
+  cloudFrontLogsBasePrefix: string;
+  webAclArn?: string;
+  cloudFrontPrefixList: ec2.IPrefixList;
+  alb: elbv2.IApplicationLoadBalancer;
+  albListener: elbv2.IApplicationListener;
+  machineImage: ec2.IMachineImage;
+  fleet: InterviewFleetConfig;
+  index: number;
+  instanceRecreateToken: string;
+  templates: Templates;
+};
+
+export class InterviewEnvironment extends Construct {
+  readonly instance: ec2.Instance;
+  readonly pathPattern: string;
+  readonly targetGroup: elbv2.IApplicationTargetGroup;
+
+  constructor(scope: Construct, id: string, props: InterviewEnvironmentProps) {
+    super(scope, id);
+
+    const codeServerHeredoc = 'INTERVIEW_CODE_SERVER_EOF';
+    const nginxHeredoc = 'INTERVIEW_NGINX_EOF';
+
+    const suffix = `${props.fleet.name}-${props.index + 1}`;
+    const generatedSuffix = `${suffix}-${props.instanceRecreateToken}`;
+
+    const logGroupName = `/interview/${generatedSuffix}`;
+    const instanceLogGroup = new logs.LogGroup(
+      props.stackScope,
+      `InstanceLogs-${generatedSuffix}`,
+      {
+        logGroupName,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      },
+    );
+
+    const role = new iam.Role(props.stackScope, `Role-${generatedSuffix}`, {
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+      ],
+    });
+
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [props.projectBucket.arnForObjects(props.fleet.projectZipKey)],
+      }),
+    );
+
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:ListBucket'],
+        resources: [props.projectBucket.bucketArn],
+        conditions: {
+          StringLike: {
+            's3:prefix': [props.fleet.projectZipKey],
+          },
+        },
+      }),
+    );
+
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'logs:CreateLogStream',
+          'logs:PutLogEvents',
+          'logs:DescribeLogStreams',
+        ],
+        resources: [instanceLogGroup.logGroupArn, `${instanceLogGroup.logGroupArn}:*`],
+      }),
+    );
+
+    const instanceSg = new ec2.SecurityGroup(props.stackScope, `Sg-${generatedSuffix}`, {
+      vpc: props.vpc,
+      allowAllOutbound: false,
+      description: `Security group for ${suffix}`,
+    });
+
+    instanceSg.addIngressRule(
+      ec2.Peer.securityGroupId(props.alb.connections.securityGroups[0].securityGroupId),
+      ec2.Port.tcp(80),
+      'Allow HTTP only from the ALB',
+    );
+
+    instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP outbound (apt)');
+    instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
+
+    const codeServerScript = renderCodeServerScript(props.templates, {
+      codeServerPassword: props.fleet.codeServerPassword,
+    });
+
+    const nginxConfig = renderNginxConfig(props.templates);
+
+    const fetchBundleScript = renderFetchBundleScript(props.templates, {
+      projectBucketName: props.projectBucket.bucketName,
+      projectZipKey: props.fleet.projectZipKey,
+    });
+
+    const setupCloudWatchAgentScript = renderSetupCloudWatchAgentScript(
+      props.templates,
+      {
+        logGroupName,
+      },
+    );
+
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      // Capture all UserData output to a file and the EC2 instance console.
+      'exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1',
+      'echo "user-data: start $(date -Is)"',
+      props.templates.bootstrapBase,
+      setupCloudWatchAgentScript,
+      'export USER=ubuntu',
+      'export HOME=/home/ubuntu',
+      'export SHELL=/bin/bash',
+      'mkdir -p "$HOME"',
+      'cd "$HOME"',
+      `cat > /tmp/interview-setup-code-server.sh <<'${codeServerHeredoc}'`,
+      codeServerScript,
+      codeServerHeredoc,
+      'chmod +x /tmp/interview-setup-code-server.sh',
+      'bash /tmp/interview-setup-code-server.sh',
+      `cat > /etc/nginx/sites-available/code-server <<'${nginxHeredoc}'`,
+      nginxConfig,
+      nginxHeredoc,
+      'rm -f /etc/nginx/sites-enabled/default',
+      'rm -f /etc/nginx/sites-available/default',
+      'ln -sf /etc/nginx/sites-available/code-server /etc/nginx/sites-enabled/code-server',
+      'nginx -t',
+      'systemctl enable nginx',
+      'systemctl restart nginx',
+      fetchBundleScript,
+      'mkdir -p /var/local/interview',
+      'echo "user-data: ok $(date -Is)" | tee /var/local/interview/userdata-ok',
+    );
+
+    const instance = new ec2.Instance(props.stackScope, `Instance-${generatedSuffix}`, {
+      vpc: props.vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroup: instanceSg,
+      role,
+      machineImage: props.machineImage,
+      instanceType: new ec2.InstanceType(props.fleet.instanceType),
+      userData,
+      blockDevices: [
+        {
+          deviceName: '/dev/sda1',
+          volume: ec2.BlockDeviceVolume.ebs(props.fleet.volumeSizeGiB, {
+            encrypted: true,
+            deleteOnTermination: true,
+          }),
+        },
+      ],
+    });
+
+    cdk.Tags.of(instance).add('Name', suffix);
+    cdk.Tags.of(instance).add('Purpose', 'InterviewEnvironment');
+    cdk.Tags.of(instance).add('Fleet', props.fleet.name);
+
+    props.projectBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: `AllowReadFor${generatedSuffix}`,
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal(role.roleArn)],
+        actions: ['s3:GetObject'],
+        resources: [props.projectBucket.arnForObjects(props.fleet.projectZipKey)],
+      }),
+    );
+
+    props.projectBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: `AllowListFor${generatedSuffix}`,
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal(role.roleArn)],
+        actions: ['s3:ListBucket'],
+        resources: [props.projectBucket.bucketArn],
+        conditions: {
+          StringLike: {
+            's3:prefix': [props.fleet.projectZipKey],
+          },
+        },
+      }),
+    );
+
+    const targetGroup = new elbv2.ApplicationTargetGroup(
+      props.stackScope,
+      `AlbTargets-${generatedSuffix}`,
+      {
+        vpc: props.vpc,
+        port: 80,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        targets: [new elbv2Targets.InstanceTarget(instance)],
+        healthCheck: {
+          path: '/health',
+          protocol: elbv2.Protocol.HTTP,
+          healthyHttpCodes: '200',
+        },
+      },
+    );
+
+    const pathPattern = `/env-${suffix}/*`;
+
+    const priorityHash = crypto
+      .createHash('sha256')
+      .update(props.instanceRecreateToken)
+      .digest();
+    const bandIndex = priorityHash[0] % 100; // 0-99
+    const basePriority = 10_000 + bandIndex * 100; // 10000, 10100, ...
+    const listenerRulePriority = basePriority + props.index;
+
+    props.albListener.addAction(`AlbListenerRule-${generatedSuffix}`, {
+      priority: listenerRulePriority,
+      conditions: [elbv2.ListenerCondition.pathPatterns([pathPattern])],
+      action: elbv2.ListenerAction.forward([targetGroup]),
+    });
+
+    new CfnOutput(props.stackScope, `InstanceId-${generatedSuffix}`, {
+      value: instance.instanceId,
+    });
+
+    this.instance = instance;
+    this.pathPattern = pathPattern;
+    this.targetGroup = targetGroup;
+  }
+}
+
