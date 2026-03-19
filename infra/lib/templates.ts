@@ -58,11 +58,6 @@ export function renderSetupCloudWatchAgentScript(
   );
 }
 
-/** Nginx $http_* suffix for a header, e.g. X-Origin-Verify → x_origin_verify */
-export function toNginxHeaderVariableName(headerName: string): string {
-  return headerName.toLowerCase().replace(/-/g, '_');
-}
-
 export function renderNginxConfig(
   templates: Templates,
   opts: { basePath: string; originVerifyExpected: string },

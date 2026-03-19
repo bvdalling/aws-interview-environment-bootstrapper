@@ -28,6 +28,7 @@ export type InterviewEnvironmentProps = {
   webAclArn?: string;
   cloudFrontPrefixList: ec2.IPrefixList;
   alb: elbv2.IApplicationLoadBalancer;
+  albSecurityGroupId: string;
   albListener: elbv2.IApplicationListener;
   /** CloudFront domain only, e.g. d111abcdef.cloudfront.net (for code-server public URLs). */
   cloudFrontDistributionDomain: string;
@@ -110,9 +111,23 @@ export class InterviewEnvironment extends Construct {
     });
 
     instanceSg.addIngressRule(
-      ec2.Peer.securityGroupId(props.alb.connections.securityGroups[0].securityGroupId),
+      ec2.Peer.securityGroupId(props.albSecurityGroupId),
       ec2.Port.tcp(80),
       'Allow HTTP only from the ALB',
+    );
+
+    // With `allowAllOutbound: false`, EC2 instances still require DNS egress
+    // to resolve external endpoints (apt repos, S3, CloudWatch, etc.).
+    // The VPC resolver lives inside the VPC CIDR, so allow DNS to it only.
+    instanceSg.addEgressRule(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.udp(53),
+      'DNS UDP outbound to VPC resolver',
+    );
+    instanceSg.addEgressRule(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.tcp(53),
+      'DNS TCP outbound to VPC resolver',
     );
 
     instanceSg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP outbound (apt)');

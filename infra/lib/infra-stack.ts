@@ -102,6 +102,7 @@ export class InfraStack extends Stack {
     const alb = loadBalancer.alb;
     const albListener = loadBalancer.listener;
     const distribution = loadBalancer.distribution;
+    const albSecurityGroupId = loadBalancer.albSecurityGroup.securityGroupId;
 
     let envOrdinal = 0;
     const usedListenerRulePriorities = new Set<number>();
@@ -143,6 +144,7 @@ export class InfraStack extends Stack {
           instanceRecreateToken,
           templates,
           alb,
+          albSecurityGroupId,
           albListener,
           cloudFrontDistributionDomain: distribution.distributionDomainName,
           cloudFrontDistribution: distribution,

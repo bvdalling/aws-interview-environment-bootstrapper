@@ -1,4 +1,4 @@
-set -euxo pipefail
+set -euo pipefail
 
 curl -fsSL https://code-server.dev/install.sh | sh
 
@@ -10,12 +10,16 @@ BASE_PATH='__CODE_SERVER_BASE_PATH__'
 mkdir -p /home/ubuntu/.config/code-server
 
 # code-server 4.111+: no base-path in config — nginx strips /env-.../ to /.
+# Avoid logging the secret by not using shell xtrace (-x).
+umask 077
 cat > /home/ubuntu/.config/code-server/config.yaml <<EOF
 bind-addr: 127.0.0.1:8080
 auth: password
 password: __CODE_SERVER_PASSWORD__
 cert: false
 EOF
+chmod 700 /home/ubuntu/.config/code-server
+chmod 600 /home/ubuntu/.config/code-server/config.yaml
 
 chown -R ubuntu:ubuntu /home/ubuntu/.config
 

@@ -25,7 +25,6 @@ export function createStackTermination(
     timeout: Duration.seconds(30),
     environment: {
       STACK_NAME: props.stack.stackName,
-      TERMINATION_DATE_UTC: props.terminationDateUtcString,
     },
     code: lambda.Code.fromInline(`
         const AWS = require('aws-sdk');

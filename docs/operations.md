@@ -7,7 +7,8 @@ This page covers the operational workflows you will use most: finding outputs, f
 After `npx cdk deploy`, the stack prints outputs including:
 
 - **`ProjectBucketName`**: S3 bucket where the interview bundle object lives
-- **`CloudFrontUrl-<fleet>-<index>-<token>`**: the viewer HTTPS URL for each environment
+- **`SharedCloudFrontUrl`**: the CloudFront domain
+- **`EnvironmentUrl-<fleet>-<index>-<token>`**: the viewer HTTPS URL for each environment
 - **`InstanceId-<fleet>-<index>-<token>`**: the EC2 instance ID for each environment
 
 ## Redeploy / recreate environments
@@ -35,7 +36,7 @@ Operational guidance:
 
 ## Logging and retention
 
-- **CloudFront access logs**: delivered to an S3 logs bucket under a per-environment prefix.
+- **CloudFront access logs**: delivered to an S3 logs bucket under the shared prefix `cloudfront-access-logs/shared/` (filter by request path `/env-<routeGuid>/` to isolate an environment).
 - **Instance logs**: shipped to a per-environment CloudWatch log group under `/interview/<fleet>-<index>-<token>`.
 - **Retention**: the per-environment log group is configured with **one week** retention.
 

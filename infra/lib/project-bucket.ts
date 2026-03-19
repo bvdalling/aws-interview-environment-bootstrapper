@@ -15,6 +15,7 @@ export function createProjectBucket(scope: Construct): ProjectBucket {
   const projectBucket = new s3.Bucket(scope, 'ProjectFilesBucket', {
     blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     enforceSSL: true,
+    encryption: s3.BucketEncryption.S3_MANAGED,
     versioned: true,
     removalPolicy: cdk.RemovalPolicy.DESTROY,
     autoDeleteObjects: true,

@@ -11,6 +11,7 @@ export type SharedAlbResult = {
   alb: elbv2.ApplicationLoadBalancer;
   listener: elbv2.ApplicationListener;
   distribution: cloudfront.Distribution;
+  albSecurityGroup: ec2.SecurityGroup;
 };
 
 export type SharedAlbProps = {
@@ -94,6 +95,6 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
     minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2025,
   });
 
-  return { alb, listener, distribution };
+  return { alb, listener, distribution, albSecurityGroup };
 }
 

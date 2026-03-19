@@ -55,9 +55,10 @@ npx cdk deploy
 
 5. After deploy completes, CDK prints outputs including:
    - `ProjectBucketName`
-   - `CloudFrontUrl-<fleet>-<index>-<token>` (one per environment)
+   - `SharedCloudFrontUrl` (the CloudFront domain)
+   - `EnvironmentUrl-<fleet>-<index>-<token>` (one per environment)
 
-Open the `CloudFrontUrl-...` in your browser and log in to `code-server` using your `codeServerPassword`.
+Open the `EnvironmentUrl-...` in your browser and log in to `code-server` using your `codeServerPassword`.
 
 ## Configuration overview (`infra/config.ts`)
 
