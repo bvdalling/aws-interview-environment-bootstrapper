@@ -6,7 +6,7 @@ This project provisions one or more identical, short-lived **interview environme
 
 At a high level, the CDK stack creates:
 
-- **VPC**: with both public and private subnets, plus an **S3 gateway endpoint**
+- **VPC**: with both public and private subnets, plus an **S3 gateway endpoint**; **private subnets** use a custom **network ACL** that blocks east-west traffic between private subnet CIDRs while still allowing ALB → instance, NAT egress, and DNS
 - **S3 project bucket**: private bucket used to store the interview bundle zip that instances download on boot
 - **CloudFront logs bucket**: private S3 bucket that receives standard CloudFront access logs
 - **Stack termination**: an EventBridge rule + Lambda that deletes the stack at/after the configured UTC timestamp
@@ -33,7 +33,7 @@ flowchart LR
 This stack uses an ALB as the CloudFront origin, then forwards ALB to the instance. This provides:
 
 - a stable origin endpoint (ALB DNS) rather than direct instance DNS
-- a convenient place to attach a **REGIONAL** WAF WebACL (CloudFront-scope WAF requires global scope and deployment in us-east-1)
+- a **REGIONAL** AWS WAF Web ACL defined alongside the ALB and associated directly to the load balancer (CloudFront-scope WAF would require global scope and deployment in us-east-1)
 - an explicit security-group hop (CloudFront prefix list to ALB SG to instance SG)
 
 ## Key design choices and trade-offs

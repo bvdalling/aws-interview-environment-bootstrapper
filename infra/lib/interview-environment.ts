@@ -25,7 +25,6 @@ export type InterviewEnvironmentProps = {
   projectBucket: s3.Bucket;
   cloudFrontLogsBucket: s3.Bucket;
   cloudFrontLogsBasePrefix: string;
-  webAclArn?: string;
   cloudFrontPrefixList: ec2.IPrefixList;
   alb: elbv2.IApplicationLoadBalancer;
   albSecurityGroupId: string;
@@ -139,20 +138,23 @@ export class InterviewEnvironment extends Construct {
     // validated by NGINX before proxying to code-server.
     const originVerifyExpected = crypto.randomBytes(32).toString('hex');
 
+    const fetchBundleScript = renderFetchBundleScript(props.templates, {
+      projectBucketName: props.projectBucket.bucketName,
+      projectZipKey: props.fleet.projectZipKey,
+      workspaceFolder: props.fleet.codeServerWorkspaceFolder,
+    });
+
     const codeServerScript = renderCodeServerScript(props.templates, {
       codeServerPassword: props.fleet.codeServerPassword,
       codeServerBasePath,
       cloudFrontHost: props.cloudFrontDistributionDomain,
+      workspaceFolder: props.fleet.codeServerWorkspaceFolder,
+      extensions: props.fleet.codeServerExtensions,
     });
 
     const nginxConfig = renderNginxConfig(props.templates, {
       basePath: codeServerBasePath,
       originVerifyExpected,
-    });
-
-    const fetchBundleScript = renderFetchBundleScript(props.templates, {
-      projectBucketName: props.projectBucket.bucketName,
-      projectZipKey: props.fleet.projectZipKey,
     });
 
     const setupCloudWatchAgentScript = renderSetupCloudWatchAgentScript(
@@ -174,6 +176,7 @@ export class InterviewEnvironment extends Construct {
       'export SHELL=/bin/bash',
       'mkdir -p "$HOME"',
       'cd "$HOME"',
+      fetchBundleScript,
       `cat > /tmp/interview-setup-code-server.sh <<'${codeServerHeredoc}'`,
       codeServerScript,
       codeServerHeredoc,
@@ -188,7 +191,6 @@ export class InterviewEnvironment extends Construct {
       'nginx -t',
       'systemctl enable nginx',
       'systemctl restart nginx',
-      fetchBundleScript,
       'mkdir -p /var/local/interview',
       'echo "user-data: ok $(date -Is)" | tee /var/local/interview/userdata-ok',
     );

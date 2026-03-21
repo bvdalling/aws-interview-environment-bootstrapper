@@ -5,6 +5,13 @@ export type InterviewFleetConfig = {
   volumeSizeGiB: number;
   codeServerPassword: string;
   projectZipKey: string;
+  /**
+   * Open VSX extension ids (e.g. ms-python.python). Microsoft Marketplace-only
+   * extensions may be unavailable in code-server.
+   */
+  codeServerExtensions: string[];
+  /** Absolute path on the instance for code-server to open (must match bundle extract dir). */
+  codeServerWorkspaceFolder: string;
 };
 
 export type AppConfig = {
@@ -38,6 +45,8 @@ export const appConfig: AppConfig = {
       volumeSizeGiB: 30,
       codeServerPassword: 'ReplaceMeNow-StrongPassword1!',
       projectZipKey: 'bundles/interview/interview.zip',
+      codeServerExtensions: ['vue.volar', 'dbaeumer.vscode-eslint'],
+      codeServerWorkspaceFolder: '/home/ubuntu/interview',
     },
   ],
   terminationDateUtc: '2026-03-18T23:59:00Z',

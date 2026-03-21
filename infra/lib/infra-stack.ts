@@ -10,8 +10,8 @@ import { loadTemplates } from './templates';
 import { createStackTermination } from './termination';
 import { InterviewEnvironment } from './interview-environment';
 import { parseTerminationDateUtc } from './time';
-import { createInterviewWebAcl } from './waf';
 import { createSharedAlbAndDistribution } from './loadbalancer';
+import { attachIsolatedPrivateSubnetNetworkAcl } from './private-subnet-nacl';
 
 export class InfraStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -57,9 +57,10 @@ export class InfraStack extends Stack {
       },
     });
 
+    attachIsolatedPrivateSubnetNetworkAcl(this, vpc);
+
     const projectBucketResult = createProjectBucket(this);
     const cloudFrontLogsBucketResult = createCloudFrontLogsBucket(this);
-    const webAclResult = createInterviewWebAcl(this);
 
     const machineImage = ec2.MachineImage.fromSsmParameter(
       appConfig.amiParameterPath,
@@ -97,7 +98,6 @@ export class InfraStack extends Stack {
       cloudFrontPrefixList,
       cloudFrontLogsBucket: cloudFrontLogsBucketResult.bucket,
       cloudFrontLogsBasePrefix: cloudFrontLogsBucketResult.basePrefix,
-      webAclArn: webAclResult.webAclArn,
     });
     const alb = loadBalancer.alb;
     const albListener = loadBalancer.listener;
@@ -136,7 +136,6 @@ export class InfraStack extends Stack {
           projectBucket: projectBucketResult.bucket,
           cloudFrontLogsBucket: cloudFrontLogsBucketResult.bucket,
           cloudFrontLogsBasePrefix: cloudFrontLogsBucketResult.basePrefix,
-          webAclArn: webAclResult.webAclArn,
           cloudFrontPrefixList,
           machineImage,
           fleet,
