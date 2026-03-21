@@ -11,7 +11,7 @@ BASE_PATH='__CODE_SERVER_BASE_PATH__'
 
 mkdir -p /home/ubuntu/.config/code-server
 
-# code-server 4.111+: no base-path in config — nginx strips /env-.../ to /.
+# code-server 4.111+: no base-path in config; nginx strips /env-.../ to /.
 # Avoid logging the secret by not using shell xtrace (-x).
 umask 077
 cat > /home/ubuntu/.config/code-server/config.yaml <<EOF
@@ -41,7 +41,7 @@ chmod 644 /etc/code-server-proxy.env
 
 cat > /etc/systemd/system/code-server.service <<UNIT
 [Unit]
-Description=code-server (VS Code in browser)
+Description=Sandcastle code-server (VS Code in browser)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=120

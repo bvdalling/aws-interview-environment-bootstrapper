@@ -2,12 +2,12 @@
 
 ## Scope and intended use
 
-This repository provisions a **temporary, disposable interview environment** in AWS: an EC2 instance running `code-server` (VS Code in the browser) behind NGINX, an internet-facing ALB, and CloudFront, with automated teardown.
+**Sandcastle** provisions a **temporary, disposable workspace** in AWS: an EC2 instance running `code-server` (VS Code in the browser) behind NGINX, an internet-facing ALB, and CloudFront, with automated teardown.
 
 **Critical warning**:
 
 - **This MUST NOT be deployed in any sensitive AWS account.** Do not deploy into production, shared, regulated, security accounts, or any account with real data or meaningful IAM/users/roles.
-- **Best practice is a fresh AWS account** with nothing deployed or configured in it (beyond what CDK bootstrap creates), used only for this environment, then discarded.
+- **Best practice is a fresh AWS account** with nothing deployed or configured in it (beyond what CDK bootstrap creates), used only for Sandcastle, then discarded.
 
 **Rationale**: this stack intentionally creates a public entrypoint (CloudFront), provisions interactive compute, uses password authentication, installs third-party software via network fetches at boot, and exports operational logs. These are acceptable trade-offs for an ephemeral sandbox. They are not acceptable in accounts with significant blast radius.
 
@@ -33,11 +33,11 @@ flowchart LR
 
 ### If the host is compromised, what does the attacker get?
 
-Compromise of the interview host **does not automatically grant broad access to your AWS account**. For example, it does not grant the ability to enumerate or modify arbitrary AWS resources.
+Compromise of the Sandcastle host **does not automatically grant broad access to your AWS account**. For example, it does not grant the ability to enumerate or modify arbitrary AWS resources.
 
 However, a compromised host **can use whatever AWS permissions and network access are available to that instance**. In this repo, the EC2 instance role is designed to keep that blast radius narrow (for example, scoped S3 reads for the bundle object key, scoped CloudWatch Logs writes, and SSM management), but it is **not zero**.
 
-So in practical terms, the blast radius is **the interview environment itself plus the limited AWS access granted to the EC2 instance role**. That is why deploying into a fresh, non-sensitive account is still required.
+So in practical terms, the blast radius is **the Sandcastle workspace itself plus the limited AWS access granted to the EC2 instance role**. That is why deploying into a fresh, non-sensitive account is still required.
 
 ## Threat model
 
@@ -45,7 +45,7 @@ So in practical terms, the blast radius is **the interview environment itself pl
 
 - **Interactive session**: whatever the candidate/interviewer can access in the IDE/terminal.
 - **Instance filesystem**: bundle contents, any files created during the session, and OS state.
-- **S3 bundle object**: the interview bundle zip the instance downloads.
+- **S3 bundle object**: the workspace bundle zip the instance downloads.
 - **CloudFront access logs**: request metadata for the public endpoint.
 - **CloudWatch logs**: boot logs and NGINX error logs (and anything those logs capture).
 - **AWS account resources**: any impact reachable from the instance's IAM role and network egress.
@@ -67,7 +67,7 @@ So in practical terms, the blast radius is **the interview environment itself pl
 
 ## Threat matrix
 
-Qualitative ratings are relative to this project's intended use (short-lived, disposable sandbox). They assume the environment is deployed as designed (CloudFront in front, origin header enforcement, and a deliberately narrow instance role), and that it is still exposed to the public internet via CloudFront.
+Qualitative ratings are relative to Sandcastle's intended use (short-lived, disposable sandbox). They assume the environment is deployed as designed (CloudFront in front, origin header enforcement, and a deliberately narrow instance role), and that it is still exposed to the public internet via CloudFront.
 
 | Threat type | Impact (if it happens) | Likelihood | Notes / what limits it |
 |---|---:|---:|---|
@@ -76,14 +76,14 @@ Qualitative ratings are relative to this project's intended use (short-lived, di
 | **Software vulnerability in `code-server` / NGINX / OS** | **High**: remote code execution or auth bypass → host compromise | **Medium** | Reduced exposure vs direct instance by CloudFront-only ingress path + secret origin header, but attacker targets the public service |
 | **Origin bypass (direct access to ALB/instance)** | **Medium to High**: bypass CloudFront controls, reach origin path directly | **Low** | ALB SG allows inbound only from the CloudFront origin-facing prefix list; instance SG only from ALB; NGINX requires the secret origin header |
 | **Supply-chain compromise at boot (remote install scripts / package repos)** | **High**: compromised host from first boot | **Low to Medium** | Convenience-driven; mitigated mainly by ephemerality and not using sensitive accounts/data; not a high-assurance posture |
-| **Malicious interview bundle content** | **Medium to High**: environment compromise, data exfil from session, persistence in that host | **Medium** | Bundle is trusted input; mitigate by keeping bundle minimal, reviewing contents, and treating the host as untrusted |
+| **Malicious workspace bundle content** | **Medium to High**: environment compromise, data exfil from session, persistence in that host | **Medium** | Bundle is trusted input; mitigate by keeping bundle minimal, reviewing contents, and treating the host as untrusted |
 | **Instance IAM role abuse after host compromise** | **Low to Medium**: limited AWS API actions (scoped S3 reads, scoped logs writes, SSM) | **Low** | Role is intentionally narrow; host compromise can still use whatever permissions exist |
 | **Sensitive data leakage via logs** | **Medium**: credentials or secrets accidentally captured in logs | **Medium** | CloudWatch agent ships boot/NGINX logs; mitigate by not using real secrets/data and keeping sessions clean |
 | **Denial of service (flooding the endpoint)** | **Low to Medium**: environment becomes unusable | **Medium** | Public endpoint; WAF and rate limiting can help; disposal means you can recreate quickly |
 
 ## Implemented security controls (grounded in this repo)
 
-This section lists controls implemented in this repository today.
+This section lists controls implemented in Sandcastle today.
 
 ### Network controls
 
@@ -134,7 +134,7 @@ These controls reduce AWS API blast radius, but they do not prevent damage insid
 
 ## Residual risks and explicit non-goals
 
-This project intentionally does **not** attempt to meet high-assurance security requirements. Known residual risks/non-goals include:
+Sandcastle intentionally does **not** attempt to meet high-assurance security requirements. Known residual risks/non-goals include:
 
 - **Not for sensitive accounts or data**: the primary mitigation is **account isolation** (fresh account only).
 - **Password-only auth**: `code-server` uses password authentication (no MFA/SSO).
@@ -146,7 +146,7 @@ This project intentionally does **not** attempt to meet high-assurance security 
 ## Operational best practices
 
 - **Use a fresh account** with nothing else deployed/configured.
-- **Set a strong, unique `codeServerPassword`** and rotate it for each interview session.
+- **Set a strong, unique `codeServerPassword`** and rotate it for each session.
 - **Set an aggressive `terminationDateUtc`** and delete the stack manually as soon as you are done.
 - **Treat the environment as untrusted**: do not upload credentials, private keys, customer data, or internal source code.
 

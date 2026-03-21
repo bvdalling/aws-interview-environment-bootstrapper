@@ -1,19 +1,19 @@
 # Architecture
 
-This project provisions one or more identical, short-lived **interview environments** on AWS. Each environment provides a browser-accessible IDE (`code-server`) reachable through CloudFront, and is designed to be disposable.
+**Sandcastle** provisions one or more identical, short-lived **workspaces** on AWS. Each workspace provides a browser-accessible IDE (`code-server`) reachable through CloudFront, and is designed to be disposable.
 
 ## What gets deployed (per stack)
 
 At a high level, the CDK stack creates:
 
 - **VPC**: with both public and private subnets, plus an **S3 gateway endpoint**; **private subnets** use a custom **network ACL** that blocks east-west traffic between private subnet CIDRs while still allowing ALB → instance, NAT egress, and DNS
-- **S3 project bucket**: private bucket used to store the interview bundle zip that instances download on boot
+- **S3 project bucket**: private bucket used to store the workspace bundle zip that instances download on boot
 - **CloudFront logs bucket**: private S3 bucket that receives standard CloudFront access logs
 - **Stack termination**: an EventBridge rule + Lambda that deletes the stack at/after the configured UTC timestamp
 
 In addition, for each configured environment (fleet entry × `count`), the stack creates:
 
-- **EC2 instance**: runs NGINX + `code-server`, downloads the interview bundle from S3 on boot, ships logs to CloudWatch
+- **EC2 instance**: runs NGINX + `code-server`, downloads the workspace bundle from S3 on boot, ships logs to CloudWatch
 - **Application Load Balancer (ALB)**: internet-facing, receives HTTP from CloudFront and forwards to the instance over HTTP
 - **CloudFront distribution**: public HTTPS entrypoint in front of the ALB origin
 - **CloudWatch Logs log group**: per-environment log group with short retention
@@ -66,7 +66,7 @@ Trade-off: whatever is in the bundle becomes part of the environment. Keep bundl
 
 ### Automatic teardown as a primary safety mechanism
 
-The environment is explicitly designed to be ephemeral, and auto-deletes the CloudFormation stack at a configured UTC timestamp.
+Each Sandcastle workspace is explicitly ephemeral: the CloudFormation stack auto-deletes at a configured UTC timestamp.
 
 Trade-off: by design, resources (including logs, unless exported) are not retained long-term.
 

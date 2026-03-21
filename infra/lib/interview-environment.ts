@@ -108,7 +108,7 @@ export class InterviewEnvironment extends Construct {
       props.stackScope,
       `CodeServerSecret-${generatedSuffix}`,
       {
-        description: `code-server password for ${suffix}`,
+        description: `Sandcastle code-server password for ${suffix}`,
         secretStringValue: cdk.SecretValue.unsafePlainText(props.fleet.codeServerPassword),
       },
     );
@@ -117,7 +117,7 @@ export class InterviewEnvironment extends Construct {
     const instanceSg = new ec2.SecurityGroup(props.stackScope, `Sg-${generatedSuffix}`, {
       vpc: props.vpc,
       allowAllOutbound: false,
-      description: `Security group for ${suffix}`,
+      description: `Sandcastle EC2 security group for ${suffix}`,
     });
 
     instanceSg.addIngressRule(
@@ -226,7 +226,7 @@ export class InterviewEnvironment extends Construct {
     });
 
     cdk.Tags.of(instance).add('Name', suffix);
-    cdk.Tags.of(instance).add('Purpose', 'InterviewEnvironment');
+    cdk.Tags.of(instance).add('Purpose', 'Sandcastle');
     cdk.Tags.of(instance).add('Fleet', props.fleet.name);
 
     props.projectBucket.addToResourcePolicy(

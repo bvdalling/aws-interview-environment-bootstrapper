@@ -6,12 +6,12 @@ rm -f __WORKSPACE_ZIP_PATH__
 
 # Retry download in case the instance hits transient network/VPC-endpoint issues.
 for attempt in 1 2 3; do
-  echo "Downloading interview bundle (attempt ${attempt}/3)..."
+  echo "Downloading workspace bundle (attempt ${attempt}/3)..."
   if aws s3 cp "s3://__PROJECT_BUCKET__/__PROJECT_ZIP_KEY__" __WORKSPACE_ZIP_PATH__; then
     break
   fi
   if [ "${attempt}" -eq 3 ]; then
-    echo "Failed to download interview bundle after 3 attempts."
+    echo "Failed to download workspace bundle after 3 attempts."
     exit 1
   fi
   sleep 2

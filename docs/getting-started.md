@@ -1,6 +1,6 @@
 # Getting started
 
-This guide walks you through provisioning one or more interview environments in a **non-sensitive AWS account** and connecting to `code-server` through CloudFront.
+This guide walks you through provisioning one or more **Sandcastle** workspaces in a **non-sensitive AWS account** and connecting to `code-server` through CloudFront.
 
 ## What you get after deploy
 
@@ -36,7 +36,7 @@ npm install
 2. Configure your environments in `infra/config.ts`:
    - Add one or more fleet entries to `appConfig.fleets` (it may be commented out initially).
    - Set a **strong** `codeServerPassword`.
-   - Set a `projectZipKey` (see [Interview bundle](#interview-bundle) below).
+   - Set a `projectZipKey` (see [Workspace bundle](#workspace-bundle) below).
    - Set `terminationDateUtc` (see [Automatic teardown](#automatic-teardown)).
 
 3. Bootstrap CDK (first time per account/region):
@@ -73,7 +73,11 @@ Each fleet creates `count` identical environments:
 - **`instanceType`**: e.g. `t3.micro`
 - **`volumeSizeGiB`**: EBS root volume size
 - **`codeServerPassword`**: password for `code-server`
-- **`projectZipKey`**: S3 object key for the interview bundle zip (downloaded at boot)
+- **`codeServerExtensions`**: Open VSX extension ids to pre-install (see [Configuring code-server](./code-server.md))
+- **`codeServerWorkspaceFolder`**: folder code-server opens (must match bundle extract path)
+- **`projectZipKey`**: S3 object key for the workspace bundle zip (downloaded at boot)
+
+For password handling, extensions, and workspace details, see **[Configuring code-server](./code-server.md)**.
 
 ### VPC (`appConfig.vpc`)
 
@@ -83,9 +87,9 @@ Creates a VPC used by the environments. The stack also adds an **S3 gateway endp
 
 EC2 uses an AMI ID looked up from SSM Parameter Store (Ubuntu by default).
 
-## Interview bundle
+## Workspace bundle
 
-On first boot, each instance runs a script that:
+The **workspace bundle** is the zip each Sandcastle instance downloads and unpacks. On first boot, each instance runs a script that:
 
 - downloads `s3://<ProjectBucketName>/<projectZipKey>` to `/home/ubuntu/interview.zip`
 - unzips to `/home/ubuntu/interview/`
@@ -110,7 +114,7 @@ aws s3 ls "s3://<ProjectBucketName>/bundles/interview/"
 
 ## Automatic teardown
 
-This environment is designed to **self-destruct** by deleting the CloudFormation stack at `appConfig.terminationDateUtc`.
+Sandcastle is designed to **self-destruct** by deleting the CloudFormation stack at `appConfig.terminationDateUtc`.
 
 - **Where**: `infra/config.ts` → `appConfig.terminationDateUtc`
 - **Format**: ISO 8601 UTC string that must end in `Z`, e.g. `2026-03-31T23:59:00Z`
