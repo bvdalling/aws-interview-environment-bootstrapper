@@ -10,6 +10,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import type { InterviewFleetConfig } from '../config';
 import {
   renderCodeServerScript,
@@ -103,6 +104,16 @@ export class InterviewEnvironment extends Construct {
       }),
     );
 
+    const codeServerSecret = new secretsmanager.Secret(
+      props.stackScope,
+      `CodeServerSecret-${generatedSuffix}`,
+      {
+        description: `code-server password for ${suffix}`,
+        secretStringValue: cdk.SecretValue.unsafePlainText(props.fleet.codeServerPassword),
+      },
+    );
+    codeServerSecret.grantRead(role);
+
     const instanceSg = new ec2.SecurityGroup(props.stackScope, `Sg-${generatedSuffix}`, {
       vpc: props.vpc,
       allowAllOutbound: false,
@@ -145,7 +156,6 @@ export class InterviewEnvironment extends Construct {
     });
 
     const codeServerScript = renderCodeServerScript(props.templates, {
-      codeServerPassword: props.fleet.codeServerPassword,
       codeServerBasePath,
       cloudFrontHost: props.cloudFrontDistributionDomain,
       workspaceFolder: props.fleet.codeServerWorkspaceFolder,
@@ -177,6 +187,7 @@ export class InterviewEnvironment extends Construct {
       'mkdir -p "$HOME"',
       'cd "$HOME"',
       fetchBundleScript,
+      `export CODE_SERVER_PASSWORD="$(aws secretsmanager get-secret-value --region ${cdk.Stack.of(props.stackScope).region} --secret-id ${codeServerSecret.secretArn} --query SecretString --output text)"`,
       `cat > /tmp/interview-setup-code-server.sh <<'${codeServerHeredoc}'`,
       codeServerScript,
       codeServerHeredoc,

@@ -3,6 +3,7 @@ export type InterviewFleetConfig = {
   count: number;
   instanceType: string;
   volumeSizeGiB: number;
+  /** Initial secret value at deploy time; stored in Secrets Manager, not in EC2 user data. */
   codeServerPassword: string;
   projectZipKey: string;
   /**

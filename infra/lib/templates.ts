@@ -54,7 +54,6 @@ done
 export function renderCodeServerScript(
   templates: Templates,
   opts: {
-    codeServerPassword: string;
     codeServerBasePath: string;
     cloudFrontHost: string;
     workspaceFolder: string;
@@ -63,7 +62,6 @@ export function renderCodeServerScript(
 ): string {
   const extBlock = renderCodeServerExtensionInstallBlock(opts.extensions);
   return templates.setupCodeServerTemplate
-    .replace(/__CODE_SERVER_PASSWORD__/g, opts.codeServerPassword)
     .replace(/__CODE_SERVER_BASE_PATH__/g, opts.codeServerBasePath)
     .replace(/__CLOUDFRONT_HOST__/g, opts.cloudFrontHost)
     .replace(/__CODE_SERVER_WORKSPACE_FOLDER__/g, opts.workspaceFolder)

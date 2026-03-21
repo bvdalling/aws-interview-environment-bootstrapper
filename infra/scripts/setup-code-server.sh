@@ -17,7 +17,7 @@ umask 077
 cat > /home/ubuntu/.config/code-server/config.yaml <<EOF
 bind-addr: 127.0.0.1:8080
 auth: password
-password: __CODE_SERVER_PASSWORD__
+password: $CODE_SERVER_PASSWORD
 cert: false
 EOF
 chmod 700 /home/ubuntu/.config/code-server

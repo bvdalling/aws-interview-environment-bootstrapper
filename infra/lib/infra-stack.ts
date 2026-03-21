@@ -4,6 +4,8 @@ import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { appConfig } from '../config';
+import { createVpcFlowLogs } from './vpc-flow-logs';
+import { addVpcInterfaceEndpoints } from './vpc-interface-endpoints';
 import { createProjectBucket } from './project-bucket';
 import { createCloudFrontLogsBucket } from './cloudfront-logs-bucket';
 import { loadTemplates } from './templates';
@@ -56,6 +58,9 @@ export class InfraStack extends Stack {
         },
       },
     });
+
+    createVpcFlowLogs(this, vpc);
+    addVpcInterfaceEndpoints(this, vpc);
 
     attachIsolatedPrivateSubnetNetworkAcl(this, vpc);
 
