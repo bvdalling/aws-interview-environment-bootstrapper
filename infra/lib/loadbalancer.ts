@@ -20,7 +20,6 @@ export type SharedAlbProps = {
   cloudFrontPrefixList: ec2.IPrefixList;
   cloudFrontLogsBucket: s3.Bucket;
   cloudFrontLogsBasePrefix: string;
-  webAclArn?: string;
 };
 
 export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlbResult {
@@ -29,7 +28,6 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
   const cloudFrontPrefixList = props.cloudFrontPrefixList;
   const cloudFrontLogsBucket = props.cloudFrontLogsBucket;
   const cloudFrontLogsBasePrefix = props.cloudFrontLogsBasePrefix;
-  const webAclArn = props.webAclArn;
   const albSecurityGroup = new ec2.SecurityGroup(scope, 'SharedAlbSg', {
     vpc,
     allowAllOutbound: false,
@@ -64,12 +62,54 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
     }),
   });
 
-  if (webAclArn) {
-    new wafv2.CfnWebACLAssociation(scope, 'SharedAlbWafAssociation', {
-      resourceArn: alb.loadBalancerArn,
-      webAclArn,
-    });
-  }
+  const webAcl = new wafv2.CfnWebACL(scope, 'SharedAlbWebAcl', {
+    scope: 'REGIONAL',
+    defaultAction: { allow: {} },
+    visibilityConfig: {
+      cloudWatchMetricsEnabled: true,
+      metricName: 'InterviewSharedAlbWebAcl',
+      sampledRequestsEnabled: true,
+    },
+    rules: [
+      {
+        name: 'AWSManagedRulesCommonRuleSet',
+        priority: 10,
+        statement: {
+          managedRuleGroupStatement: {
+            vendorName: 'AWS',
+            name: 'AWSManagedRulesCommonRuleSet',
+          },
+        },
+        overrideAction: { none: {} },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: 'AWSManagedRulesCommonRuleSet',
+          sampledRequestsEnabled: true,
+        },
+      },
+      {
+        name: 'RateLimitPerIp',
+        priority: 20,
+        statement: {
+          rateBasedStatement: {
+            limit: 1000,
+            aggregateKeyType: 'IP',
+          },
+        },
+        action: { block: {} },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: 'RateLimitPerIp',
+          sampledRequestsEnabled: true,
+        },
+      },
+    ],
+  });
+
+  new wafv2.CfnWebACLAssociation(scope, 'SharedAlbWafAssociation', {
+    resourceArn: alb.loadBalancerArn,
+    webAclArn: webAcl.attrArn,
+  });
 
   const distribution = new cloudfront.Distribution(scope, 'SharedDistribution', {
     comment: 'Shared interview environments distribution',

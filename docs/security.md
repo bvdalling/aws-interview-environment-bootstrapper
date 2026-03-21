@@ -90,6 +90,9 @@ This section lists controls implemented in this repository today.
 - **CloudFront-only reachability to the origin path**:
   - The **ALB security group** allows inbound TCP/80 only from AWS's CloudFront *origin-facing* managed prefix list.
   - The **instance security group** allows inbound TCP/80 only from the ALB security group.
+- **Private subnet network ACLs (east-west isolation)**:
+  - A dedicated NACL on private subnets **denies** traffic to/from other **private** subnet CIDRs so instances cannot reach each other at the subnet boundary, in addition to security-group restrictions.
+  - **Allow** rules preserve ALB health checks and forwarded traffic (TCP/80 from public subnets), return traffic from the internet (ephemeral ports), DNS, HTTP/HTTPS egress via NAT, and responses back to the ALB.
 - **`code-server` bound to localhost**:
   - `code-server` listens only on `127.0.0.1:8080`, preventing direct network exposure of the IDE service.
 - **CloudFront baseline controls**:
@@ -97,7 +100,7 @@ This section lists controls implemented in this repository today.
   - A modern minimum TLS policy is enforced.
   - Standard CloudFront access logs are enabled and delivered to S3 with an expiration lifecycle.
 - **WAF is attached at the ALB (REGIONAL)**:
-  - If configured, a REGIONAL WAF WebACL is associated to the ALB.
+  - A REGIONAL WAF Web ACL is created in the load balancer module and associated to the ALB.
   - Note: CloudFront-scope WAF is not attached by this stack.
 
 ### IAM controls (blast-radius reduction)

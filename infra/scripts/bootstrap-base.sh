@@ -1,7 +1,10 @@
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update -y
+# Best-effort: regional mirrors can be inconsistent during sync. Never abort
+# user-data because update failed; install uses whatever index is available.
+apt-get -o Acquire::Retries=5 update -y || true
+
 apt-get install -y curl wget unzip nginx docker.io ca-certificates gnupg lsb-release python3 python3-pip
 
 systemctl enable docker
@@ -15,4 +18,3 @@ unzip -q awscliv2.zip
 
 curl -fsSL https://deb.nodesource.com/setup_current.x | bash -
 apt-get install -y nodejs
-

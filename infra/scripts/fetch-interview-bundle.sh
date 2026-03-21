@@ -1,13 +1,13 @@
 set -euxo pipefail
 
-mkdir -p /home/ubuntu/interview
+mkdir -p __WORKSPACE_FOLDER__
 
-rm -f /home/ubuntu/interview.zip
+rm -f __WORKSPACE_ZIP_PATH__
 
 # Retry download in case the instance hits transient network/VPC-endpoint issues.
 for attempt in 1 2 3; do
   echo "Downloading interview bundle (attempt ${attempt}/3)..."
-  if aws s3 cp "s3://__PROJECT_BUCKET__/__PROJECT_ZIP_KEY__" /home/ubuntu/interview.zip; then
+  if aws s3 cp "s3://__PROJECT_BUCKET__/__PROJECT_ZIP_KEY__" __WORKSPACE_ZIP_PATH__; then
     break
   fi
   if [ "${attempt}" -eq 3 ]; then
@@ -18,16 +18,16 @@ for attempt in 1 2 3; do
 done
 
 echo "Bundle zip stats:"
-ls -lah /home/ubuntu/interview.zip
+ls -lah __WORKSPACE_ZIP_PATH__
 df -h /home/ubuntu
 
 # Verify zip integrity before extracting so we get a clear failure reason.
-unzip -t /home/ubuntu/interview.zip
+unzip -t __WORKSPACE_ZIP_PATH__
 
 # Extract (overwrite existing files).
-unzip -o /home/ubuntu/interview.zip -d /home/ubuntu/interview
+unzip -o __WORKSPACE_ZIP_PATH__ -d __WORKSPACE_FOLDER__
 
-chown -R ubuntu:ubuntu /home/ubuntu/interview /home/ubuntu/interview.zip
+chown -R ubuntu:ubuntu __WORKSPACE_FOLDER__ __WORKSPACE_ZIP_PATH__
 
 bash -lc 'cat > /home/ubuntu/versions.txt <<EOF
 Node: $(node --version)

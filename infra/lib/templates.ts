@@ -34,18 +34,38 @@ export function loadTemplates(): Templates {
   };
 }
 
+/** Safe single-quoted literal for POSIX sh. */
+function shellSingleQuoted(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+function renderCodeServerExtensionInstallBlock(extensions: string[]): string {
+  if (extensions.length === 0) {
+    return '';
+  }
+  const list = extensions.map(shellSingleQuoted).join(' ');
+  return `# Install extensions (Open VSX ids)
+for ext in ${list}; do
+  sudo -u ubuntu env HOME=/home/ubuntu "$CODE_SERVER_BIN" --install-extension "$ext"
+done
+`;
+}
+
 export function renderCodeServerScript(
   templates: Templates,
   opts: {
-    codeServerPassword: string;
     codeServerBasePath: string;
     cloudFrontHost: string;
+    workspaceFolder: string;
+    extensions: string[];
   },
 ): string {
+  const extBlock = renderCodeServerExtensionInstallBlock(opts.extensions);
   return templates.setupCodeServerTemplate
-    .replace(/__CODE_SERVER_PASSWORD__/g, opts.codeServerPassword)
     .replace(/__CODE_SERVER_BASE_PATH__/g, opts.codeServerBasePath)
-    .replace(/__CLOUDFRONT_HOST__/g, opts.cloudFrontHost);
+    .replace(/__CLOUDFRONT_HOST__/g, opts.cloudFrontHost)
+    .replace(/__CODE_SERVER_WORKSPACE_FOLDER__/g, opts.workspaceFolder)
+    .replace(/__CODE_SERVER_INSTALL_EXTENSIONS__/g, extBlock);
 }
 
 export function renderSetupCloudWatchAgentScript(
@@ -69,10 +89,17 @@ export function renderNginxConfig(
 
 export function renderFetchBundleScript(
   templates: Templates,
-  opts: { projectBucketName: string; projectZipKey: string },
+  opts: {
+    projectBucketName: string;
+    projectZipKey: string;
+    workspaceFolder: string;
+  },
 ): string {
+  const zipPath = `${opts.workspaceFolder}.zip`;
   return templates.fetchInterviewBundleTemplate
     .replace(/__PROJECT_BUCKET__/g, opts.projectBucketName)
-    .replace(/__PROJECT_ZIP_KEY__/g, opts.projectZipKey);
+    .replace(/__PROJECT_ZIP_KEY__/g, opts.projectZipKey)
+    .replace(/__WORKSPACE_FOLDER__/g, opts.workspaceFolder)
+    .replace(/__WORKSPACE_ZIP_PATH__/g, zipPath);
 }
 

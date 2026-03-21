@@ -5,6 +5,8 @@ curl -fsSL https://code-server.dev/install.sh | sh
 CODE_SERVER_BIN="$(command -v code-server)"
 test -x "$CODE_SERVER_BIN"
 
+__CODE_SERVER_INSTALL_EXTENSIONS__
+
 BASE_PATH='__CODE_SERVER_BASE_PATH__'
 
 mkdir -p /home/ubuntu/.config/code-server
@@ -15,7 +17,7 @@ umask 077
 cat > /home/ubuntu/.config/code-server/config.yaml <<EOF
 bind-addr: 127.0.0.1:8080
 auth: password
-password: __CODE_SERVER_PASSWORD__
+password: $CODE_SERVER_PASSWORD
 cert: false
 EOF
 chmod 700 /home/ubuntu/.config/code-server
@@ -52,7 +54,7 @@ Group=ubuntu
 Environment=HOME=/home/ubuntu
 EnvironmentFile=/etc/code-server-proxy.env
 WorkingDirectory=/home/ubuntu
-ExecStart=${CODE_SERVER_BIN} --abs-proxy-base-path=${BASE_PATH} --skip-auth-preflight
+ExecStart=${CODE_SERVER_BIN} --abs-proxy-base-path=${BASE_PATH} --skip-auth-preflight __CODE_SERVER_WORKSPACE_FOLDER__
 Restart=on-failure
 RestartSec=5
 
