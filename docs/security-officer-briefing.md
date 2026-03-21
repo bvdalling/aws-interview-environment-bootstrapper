@@ -2,9 +2,9 @@
 
 ## What this is
 
-This repository provisions a **temporary interview environment** in AWS. It is designed to be **disposable**, **time-bounded**, and **safer than exposing an EC2 instance directly**. It is not intended to meet production or regulated security standards.
+**Sandcastle** provisions a **temporary workspace** in AWS. It is designed to be **disposable**, **time-bounded**, and **safer than exposing an EC2 instance directly**. It is not intended to meet production or regulated security standards.
 
-The environment provides a browser-based IDE (`code-server`) for interviews, delivered through CloudFront, backed by an ALB and a single EC2 host.
+The workspace provides a browser-based IDE (`code-server`) for interviews, workshops, and live sessions, delivered through CloudFront, backed by an ALB and a single EC2 host.
 
 ## Non-negotiable deployment constraints
 
@@ -23,7 +23,7 @@ Request path:
 - ALB forwards to **NGINX on EC2**
 - NGINX proxies to **`code-server` on localhost**
 
-The environment downloads an "interview bundle" zip from a private S3 bucket during boot and unpacks it onto the host.
+The workspace downloads a **workspace bundle** zip from a private S3 bucket during boot and unpacks it onto the host.
 
 ## Threat model summary
 
@@ -56,7 +56,7 @@ Controls are designed to reduce opportunistic access and constrain AWS API blast
 
 ## Blast radius statement
 
-If the public host is compromised, the attacker gets control of the **interview environment** (interactive shell and filesystem). This does **not automatically** grant broad access to the AWS account.
+If the public host is compromised, the attacker gets control of the **Sandcastle workspace** (interactive shell and filesystem). This does **not automatically** grant broad access to the AWS account.
 
 However, a compromised host can use whatever limited AWS permissions and network access the instance has. In this design, that is intentionally narrow. The account-level mitigation is still **fresh account isolation**.
 
@@ -72,14 +72,13 @@ This project intentionally does not provide:
 
 ## Operational requirements (what operators must do)
 
-- Use a fresh account dedicated to this environment.
+- Use a fresh account dedicated to Sandcastle.
 - Set a strong, unique `codeServerPassword` per session.
 - Set a short `terminationDateUtc` and delete the stack as soon as the session ends.
-- Keep the interview bundle minimal and reviewed.
+- Keep the workspace bundle minimal and reviewed.
 - Treat the environment as untrusted compute. Do not connect it to internal systems.
 
 ## Decision guidance
 
 - **Approve for use** only as a short-lived sandbox in an isolated account, with no sensitive data, and with enforced teardown.
 - **Do not approve** for production, shared, regulated, or security accounts, or any use case requiring strong authentication, data protection assurances, or supply chain guarantees.
-

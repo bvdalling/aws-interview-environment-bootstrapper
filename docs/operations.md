@@ -1,12 +1,12 @@
 # Operations
 
-This page covers the operational workflows you will use most: finding outputs, forcing recreation, and understanding teardown behavior.
+This page covers **Sandcastle** operational workflows you will use most: finding outputs, forcing recreation, and understanding teardown behavior.
 
 ## Outputs you will use
 
 After `npx cdk deploy`, the stack prints outputs including:
 
-- **`ProjectBucketName`**: S3 bucket where the interview bundle object lives
+- **`ProjectBucketName`**: S3 bucket where the workspace bundle object lives
 - **`SharedCloudFrontUrl`**: the CloudFront domain
 - **`EnvironmentUrl-<fleet>-<index>-<token>`**: the viewer HTTPS URL for each environment
 - **`InstanceId-<fleet>-<index>-<token>`**: the EC2 instance ID for each environment

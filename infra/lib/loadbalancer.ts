@@ -31,7 +31,7 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
   const albSecurityGroup = new ec2.SecurityGroup(scope, 'SharedAlbSg', {
     vpc,
     allowAllOutbound: false,
-    description: 'Shared ALB security group for interview environments',
+    description: 'Sandcastle shared ALB security group',
   });
 
   albSecurityGroup.addIngressRule(
@@ -112,7 +112,7 @@ export function createSharedAlbAndDistribution(props: SharedAlbProps): SharedAlb
   });
 
   const distribution = new cloudfront.Distribution(scope, 'SharedDistribution', {
-    comment: 'Shared interview environments distribution',
+    comment: 'Sandcastle shared CloudFront distribution',
     defaultBehavior: {
       origin: new origins.HttpOrigin(alb.loadBalancerDnsName, {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,

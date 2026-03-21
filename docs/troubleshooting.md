@@ -1,5 +1,7 @@
 # Troubleshooting
 
+Use this guide when a **Sandcastle** workspace or deploy step misbehaves.
+
 ## Instance never becomes usable
 
 - Start with **CloudWatch Logs** for the per-environment log group:

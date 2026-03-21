@@ -33,7 +33,7 @@ export class InfraStack extends Stack {
       );
     }
 
-    cdk.Tags.of(this).add('Purpose', 'InterviewEnvironment');
+    cdk.Tags.of(this).add('Purpose', 'Sandcastle');
     cdk.Tags.of(this).add('AutoTeardown', 'true');
     cdk.Tags.of(this).add('TerminationDateUtc', appConfig.terminationDateUtc);
 
